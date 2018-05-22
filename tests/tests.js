@@ -1,5 +1,5 @@
 /* jshint undef:true, browser:true, node:true */
-/* global QUnit, test, equal, asyncTest, start, define */
+/* global QUnit, test, equal, asyncTest, start, define, deepEqual */
 
 var startTests = function (lscache) {
   
@@ -238,6 +238,57 @@ var startTests = function (lscache) {
         equal(localStorage.getItem('outside-cache'), 'not part of lscache', 'We expect localStorage value to still persist');
         start();
       }, 1500);
+    });
+
+    test('Testing init() for supported and unsupported storage Tpyes', function() {
+      var using;
+
+      using = lscache.init({ storageType: 'local' });
+      equal(using.supported, true, 'We expect using local to be supported');
+      equal(using.usingStorageType, 'local', 'We expect using local to be `local`');
+
+      using = lscache.init({ storageType: 'session' });
+      equal(using.supported, true, 'We expect using session to be supported');
+      equal(using.usingStorageType, 'session', 'We expect using session to be `session`');
+
+      using = lscache.init({ storageType: 'bogus' });
+      equal(using.supported, true, 'We expect using bogus to be supported');
+      equal(using.usingStorageType, 'local', 'We expect using bogus to end up being `local`');
+
+      using = lscache.init();
+      deepEqual(using, {}, 'We expect not specifying a type to return an empty object');
+      var key = 'localkey';
+      var value = 2;
+      lscache.set(key, value);
+      lscache.init({ storageType: 'local' });
+      equal(lscache.get(key), value, 'We expect set from empty init to store in local storage');
+      lscache.flush();
+    });
+
+    test('Testing sessionStorage vs localStorage', function() {
+      var skey = 'sessionkey';
+      var svalue = 1;
+      var lkey = 'localkey';
+      var lvalue = 2;
+
+      lscache.init({ storageType: 'session' });
+      lscache.set(skey, svalue);
+      equal(lscache.get(skey), svalue, 'We expect session value to be ' + (svalue));
+
+      lscache.init({ storageType: 'local' });
+      lscache.set(lkey, lvalue);
+      equal(lscache.get(lkey), lvalue, 'We expect local value to be ' + (lvalue));
+
+      lscache.init({ storageType: 'session' });
+      equal(lscache.get(lkey), null, 'We expect hidden local value to be ' + (null));
+
+      lscache.init({ storageType: 'local' });
+      equal(lscache.get(skey), null, 'We expect hidden session value to be ' + (null));
+
+      lscache.init({ storageType: 'local' });
+      lscache.flush();
+      lscache.init({ storageType: 'session' });
+      lscache.flush();
     });
 
   }
