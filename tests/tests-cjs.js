@@ -17,7 +17,7 @@
  */
 
 /* jshint undef:true, browser:true, node:true */
-/* global define */
+/* global define, chrome */
 
 (function (root, factory) {
   if (typeof define === 'function' && define.amd) {
@@ -82,7 +82,20 @@
     }
   }
 
-  // Determines if localStorage or sessionStorage is supported;
+  function getSyncStorage() {
+    try {
+      // Chrome and firefox both support sync storage at chrome.
+      if (chrome && chrome.storage && chrome.storage.sync) {
+        return chrome.storage.sync;
+      } else {
+        return undefined;
+      }
+    } catch (ex) {
+      return undefined;
+    }
+  }
+
+  // Determines if syncStorage, localStorage, or sessionStorage is supported;
   // result is cached for better performance instead of being run each time.
   // Feature detection is based on how Modernizr does it;
   // it's not straightforward due to FF4 issues.
@@ -94,9 +107,20 @@
       return cachedStorage;
     }
 
+    /*
+    console.log('===================================================================');
+    console.log('session Storage', getSessionStorage());
+    console.log('local Storage', getLocalStorage());
+    console.log('sync Storage', getSyncStorage());
+    console.log('===================================================================');
+    */
+
     switch (type) {
     case 'session':
       storage = getSessionStorage();
+      break;
+    case 'sync':
+      storage = getSyncStorage();
       break;
     default:  // 'local', invlaid, or unspecified type uses local
       type = 'local';
@@ -442,7 +466,7 @@ a&&(a.innerHTML="<a href='"+o({filter:void 0,module:void 0,testId:void 0})+"'>"+
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{}],3:[function(require,module,exports){
 /* jshint undef:true, browser:true, node:true */
-/* global QUnit, test, equal, asyncTest, start, define, deepEqual */
+/* global QUnit, test, equal, asyncTest, start, define, deepEqual, chrome */
 
 var startTests = function (lscache) {
   
@@ -694,6 +718,10 @@ var startTests = function (lscache) {
       equal(using.supported, true, 'We expect using session to be supported');
       equal(using.usingStorageType, 'session', 'We expect using session to be `session`');
 
+      using = lscache.init({ storageType: 'sync' });
+      equal(using.supported, true, 'We expect using sync on phantomjs to be supported');
+      equal(using.usingStorageType, 'local', 'We expect using sync on phantomjs to be `local`');
+
       using = lscache.init({ storageType: 'bogus' });
       equal(using.supported, true, 'We expect using bogus to be supported');
       equal(using.usingStorageType, 'local', 'We expect using bogus to end up being `local`');
@@ -731,6 +759,17 @@ var startTests = function (lscache) {
       lscache.init({ storageType: 'local' });
       lscache.flush();
       lscache.init({ storageType: 'session' });
+      lscache.flush();
+    });
+
+    test('Testing syncStorage on non-chrome browser (phantomjs)', function() {
+      var key = 'localkey';
+      var value = 2;
+
+      lscache.init({ storageType: 'sync' });
+      lscache.set(key, value);
+      lscache.init({ storageType: 'local' });
+      equal(lscache.get(key), null, 'We expect sync value on phantomjs to actually be local' + (null));
       lscache.flush();
     });
 

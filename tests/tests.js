@@ -1,5 +1,5 @@
 /* jshint undef:true, browser:true, node:true */
-/* global QUnit, test, equal, asyncTest, start, define, chrome */
+/* global QUnit, test, equal, asyncTest, start, define, deepEqual, chrome */
 
 var startTests = function (lscache) {
   
