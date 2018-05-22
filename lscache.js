@@ -16,7 +16,7 @@
  */
 
 /* jshint undef:true, browser:true, node:true */
-/* global define */
+/* global define, chrome */
 
 (function (root, factory) {
   if (typeof define === 'function' && define.amd) {
@@ -81,7 +81,20 @@
     }
   }
 
-  // Determines if localStorage or sessionStorage is supported;
+  function getSyncStorage() {
+    try {
+      // Chrome and firefox both support sync storage at chrome.
+      if (chrome && chrome.storage && chrome.storage.sync) {
+        return chrome.storage.sync;
+      } else {
+        return undefined;
+      }
+    } catch (ex) {
+      return undefined;
+    }
+  }
+
+  // Determines if syncStorage, localStorage, or sessionStorage is supported;
   // result is cached for better performance instead of being run each time.
   // Feature detection is based on how Modernizr does it;
   // it's not straightforward due to FF4 issues.
@@ -93,9 +106,20 @@
       return cachedStorage;
     }
 
+    /*
+    console.log('===================================================================');
+    console.log('session Storage', getSessionStorage());
+    console.log('local Storage', getLocalStorage());
+    console.log('sync Storage', getSyncStorage());
+    console.log('===================================================================');
+    */
+
     switch (type) {
     case 'session':
       storage = getSessionStorage();
+      break;
+    case 'sync':
+      storage = getSyncStorage();
       break;
     default:  // 'local', invlaid, or unspecified type uses local
       type = 'local';

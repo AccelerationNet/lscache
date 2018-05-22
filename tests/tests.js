@@ -1,5 +1,5 @@
 /* jshint undef:true, browser:true, node:true */
-/* global QUnit, test, equal, asyncTest, start, define, deepEqual */
+/* global QUnit, test, equal, asyncTest, start, define, chrome */
 
 var startTests = function (lscache) {
   
@@ -251,6 +251,10 @@ var startTests = function (lscache) {
       equal(using.supported, true, 'We expect using session to be supported');
       equal(using.usingStorageType, 'session', 'We expect using session to be `session`');
 
+      using = lscache.init({ storageType: 'sync' });
+      equal(using.supported, true, 'We expect using sync on phantomjs to be supported');
+      equal(using.usingStorageType, 'local', 'We expect using sync on phantomjs to be `local`');
+
       using = lscache.init({ storageType: 'bogus' });
       equal(using.supported, true, 'We expect using bogus to be supported');
       equal(using.usingStorageType, 'local', 'We expect using bogus to end up being `local`');
@@ -288,6 +292,17 @@ var startTests = function (lscache) {
       lscache.init({ storageType: 'local' });
       lscache.flush();
       lscache.init({ storageType: 'session' });
+      lscache.flush();
+    });
+
+    test('Testing syncStorage on non-chrome browser (phantomjs)', function() {
+      var key = 'localkey';
+      var value = 2;
+
+      lscache.init({ storageType: 'sync' });
+      lscache.set(key, value);
+      lscache.init({ storageType: 'local' });
+      equal(lscache.get(key), null, 'We expect sync value on phantomjs to actually be local' + (null));
       lscache.flush();
     });
 
