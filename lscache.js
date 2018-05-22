@@ -130,7 +130,7 @@
    * @return {number}
    */
   function currentTime() {
-    return Math.floor((new Date().getTime())/EXPIRY_UNITS);
+    return (new Date().getTime()) / EXPIRY_UNITS;
   }
 
   /**
@@ -176,7 +176,7 @@
     var expr = getItem(exprKey);
 
     if (expr) {
-      var expirationTime = parseInt(expr, EXPIRY_RADIX);
+      var expirationTime = parseFloat(expr);
 
       // Check if we should actually kick item out of storage
       if (currentTime() >= expirationTime) {
@@ -228,7 +228,7 @@
           eachKey(function(key, exprKey) {
             var expiration = getItem(exprKey);
             if (expiration) {
-              expiration = parseInt(expiration, EXPIRY_RADIX);
+              expiration = parseFloat(expiration);
             } else {
               // TODO: Store date added for non-expiring items for smarter removal
               expiration = MAX_DATE;
