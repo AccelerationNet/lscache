@@ -19,72 +19,106 @@
 /* global define */
 
 (function (root, factory) {
-    if (typeof define === 'function' && define.amd) {
-        // AMD. Register as an anonymous module.
-        define([], factory);
-    } else if (typeof module !== "undefined" && module.exports) {
-        // CommonJS/Node module
-        module.exports = factory();
-    } else {
-        // Browser globals
-        root.lscache = factory();
-    }
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define([], factory);
+  } else if (typeof module !== "undefined" && module.exports) {
+    // CommonJS/Node module
+    module.exports = factory();
+  } else {
+    // Browser globals
+    root.lscache = factory();
+  }
 }(this, function () {
 
   // Prefix for all lscache keys
   var CACHE_PREFIX = 'lscache-';
 
-  // Suffix for the key name on the expiration items in localStorage
+  // Suffix for the key name on the expiration items in storage
   var CACHE_SUFFIX = '-cacheexpiration';
 
-  // expiration date radix (set to Base-36 for most space savings)
+  // Expiration date radix (set to Base-36 for most space savings)
   var EXPIRY_RADIX = 10;
 
-  // time resolution in minutes
+  // Time resolution in minutes
   var EXPIRY_UNITS = 60 * 1000;
 
   // ECMAScript max Date (epoch + 1e8 days)
-  var MAX_DATE = Math.floor(8.64e15/EXPIRY_UNITS);
+  var MAX_DATE = Math.floor(8.64e15 / EXPIRY_UNITS);
+
+  // Type of storage being used, based on requested type that is functional
+  var storageType;
+
+  // The storage object to be used, as indicated by storageType
+  var storage;
 
   var cachedStorage;
   var cachedJSON;
   var cacheBucket = '';
   var warnings = false;
 
-  // Determines if localStorage is supported in the browser;
+  function getSessionStorage() {
+    try {
+      if (sessionStorage) {
+        return sessionStorage;
+      } else {
+        return undefined;
+      }
+    } catch (ex) {
+      return undefined;
+    }
+  }
+
+  function getLocalStorage() {
+    try {
+      if (localStorage) {
+        return localStorage;
+      } else {
+        return undefined;
+      }
+    } catch (ex) {
+      return undefined;
+    }
+  }
+
+  // Determines if localStorage or sessionStorage is supported;
   // result is cached for better performance instead of being run each time.
   // Feature detection is based on how Modernizr does it;
   // it's not straightforward due to FF4 issues.
   // It's not run at parse-time as it takes 200ms in Android.
-  function supportsStorage() {
-    var key = '__lscachetest__';
-    var value = key;
+  function supportsStorage(type) {
 
+    // The storage type and if supported is known - proceed
     if (cachedStorage !== undefined) {
       return cachedStorage;
     }
 
-    // some browsers will throw an error if you try to access local storage (e.g. brave browser)
-    // hence check is inside a try/catch
-    try {
-      if (!localStorage) {
-        return false;
-      }
-    } catch (ex) {
-      return false;
+    switch (type) {
+    case 'session':
+      storage = getSessionStorage();
+      break;
+    default:  // 'local', invlaid, or unspecified type uses local
+      type = 'local';
+      storage = getLocalStorage();
+      break;
     }
+    storageType = type;
 
     try {
+      var key = '__lscachetest__';
+      var value = key;
+
       setItem(key, value);
       removeItem(key);
       cachedStorage = true;
     } catch (e) {
-        // If we hit the limit, and we don't have an empty localStorage then it means we have support
-        if (isOutOfSpace(e) && localStorage.length) {
-            cachedStorage = true; // just maxed it out and even the set test failed.
-        } else {
-            cachedStorage = false;
-        }
+      // If we hit the limit, and we don't have an empty localStorage then it means we have support
+      if (isOutOfSpace(e) && storage.length) {
+        cachedStorage = true; // just maxed it out and even the set test failed.
+      } else {
+        cachedStorage = false;
+        storage = undefined;
+      }
     }
     return cachedStorage;
   }
@@ -117,7 +151,7 @@
   }
 
   /**
-   * Returns the full string for the localStorage expiration item.
+   * Returns the full string for the storage expiration item.
    * @param {String} key
    * @return {string}
    */
@@ -126,7 +160,7 @@
   }
 
   /**
-   * Returns the number of minutes since the epoch.
+   * Returns the number of minutes since the epoch, allowing for fractional component
    * @return {number}
    */
   function currentTime() {
@@ -134,28 +168,28 @@
   }
 
   /**
-   * Wrapper functions for localStorage methods
+   * Wrapper functions for storage methods
    */
 
   function getItem(key) {
-    return localStorage.getItem(CACHE_PREFIX + cacheBucket + key);
+    return storage.getItem(CACHE_PREFIX + cacheBucket + key);
   }
 
   function setItem(key, value) {
     // Fix for iPad issue - sometimes throws QUOTA_EXCEEDED_ERR on setItem.
-    localStorage.removeItem(CACHE_PREFIX + cacheBucket + key);
-    localStorage.setItem(CACHE_PREFIX + cacheBucket + key, value);
+    storage.removeItem(CACHE_PREFIX + cacheBucket + key);
+    storage.setItem(CACHE_PREFIX + cacheBucket + key, value);
   }
 
   function removeItem(key) {
-    localStorage.removeItem(CACHE_PREFIX + cacheBucket + key);
+    storage.removeItem(CACHE_PREFIX + cacheBucket + key);
   }
 
   function eachKey(fn) {
     var prefixRegExp = new RegExp('^' + CACHE_PREFIX + escapeRegExpSpecialCharacters(cacheBucket) + '(.*)');
     // Loop in reverse as removing items will change indices of tail
-    for (var i = localStorage.length-1; i >= 0 ; --i) {
-      var key = localStorage.key(i);
+    for (var i = storage.length - 1; i >= 0; --i) {
+      var key = storage.key(i);
       key = key && key.match(prefixRegExp);
       key = key && key[1];
       if (key && key.indexOf(CACHE_SUFFIX) < 0) {
@@ -196,16 +230,44 @@
 
   var lscache = {
     /**
-     * Stores the value in localStorage. Expires after specified number of minutes.
+     * Select the desired storage type (sync, local, session).  The requested type is
+     * tested and the highest functioning type is returned
+     * @param {string} type ('sync', 'local'->default, 'session')
+     * @return {string} type actually functioning ('sync', 'local', 'session', or undefined)
+     */
+    init: function (props) {
+      var ret = {};
+
+      if (props instanceof Object) {
+        Object.keys(props).forEach(function(key) {
+          switch (key) {
+          // Use a storage type other than the default localStorage (session)
+          case 'storageType':
+            cachedStorage = undefined;
+            var supported = supportsStorage(props[key]);
+            ret.supported = supported;
+            ret.usingStorageType = storageType;
+            break;
+          default:
+            throw new Error('Unknown property', key, props[key]);
+          }
+        });
+      }
+
+      return ret;
+    },
+
+    /**
+     * Stores the value in storage. Expires after specified number of minutes.
      * @param {string} key
      * @param {Object|string} value
      * @param {number} time
      */
-    set: function(key, value, time) {
+    set: function (key, value, time) {
       if (!supportsStorage()) return;
 
       // If we don't get a string value, try to stringify
-      // In future, localStorage may properly support storing non-strings
+      // In future, storage may properly support storing non-strings
       // and this can be removed.
 
       if (!supportsJSON()) return;
@@ -225,7 +287,7 @@
           // by the expire time, and then remove the N oldest
           var storedKeys = [];
           var storedKey;
-          eachKey(function(key, exprKey) {
+          eachKey(function (key, exprKey) {
             var expiration = getItem(exprKey);
             if (expiration) {
               expiration = parseFloat(expiration);
@@ -240,9 +302,9 @@
             });
           });
           // Sorts the keys with oldest expiration time last
-          storedKeys.sort(function(a, b) { return (b.expiration-a.expiration); });
+          storedKeys.sort(function (a, b) { return (b.expiration - a.expiration); });
 
-          var targetSize = (value||'').length;
+          var targetSize = (value || '').length;
           while (storedKeys.length && targetSize > 0) {
             storedKey = storedKeys.pop();
             warn("Cache is full, removing item with key '" + key + "'");
@@ -263,21 +325,21 @@
         }
       }
 
-      // If a time is specified, store expiration info in localStorage
+      // If a time is specified, store expiration info in storage
       if (time) {
         setItem(expirationKey(key), (currentTime() + time).toString(EXPIRY_RADIX));
       } else {
-        // In case they previously set a time, remove that info from localStorage.
+        // In case they previously set a time, remove that info from storage.
         removeItem(expirationKey(key));
       }
     },
 
     /**
-     * Retrieves specified value from localStorage, if not expired.
+     * Retrieves specified value from storage, if not expired.
      * @param {string} key
      * @return {string|Object}
      */
-    get: function(key) {
+    get: function (key) {
       if (!supportsStorage()) return null;
 
       // Return the de-serialized item if not expired
@@ -299,11 +361,11 @@
     },
 
     /**
-     * Removes a value from localStorage.
+     * Removes a value from storage.
      * Equivalent to 'delete' in memcache, but that's a keyword in JS.
      * @param {string} key
      */
-    remove: function(key) {
+    remove: function (key) {
       if (!supportsStorage()) return;
 
       flushItem(key);
@@ -314,28 +376,28 @@
      * Currently exposed for testing purposes.
      * @return {boolean}
      */
-    supported: function() {
+    supported: function () {
       return supportsStorage();
     },
 
     /**
-     * Flushes all lscache items and expiry markers without affecting rest of localStorage
+     * Flushes all lscache items and expiry markers without affecting rest of storage
      */
-    flush: function() {
+    flush: function () {
       if (!supportsStorage()) return;
 
-      eachKey(function(key) {
+      eachKey(function (key) {
         flushItem(key);
       });
     },
 
     /**
-     * Flushes expired lscache items and expiry markers without affecting rest of localStorage
+     * Flushes expired lscache items and expiry markers without affecting rest of storage
      */
-    flushExpired: function() {
+    flushExpired: function () {
       if (!supportsStorage()) return;
 
-      eachKey(function(key) {
+      eachKey(function (key) {
         flushExpiredItem(key);
       });
     },
@@ -344,21 +406,21 @@
      * Appends CACHE_PREFIX so lscache will partition data in to different buckets.
      * @param {string} bucket
      */
-    setBucket: function(bucket) {
+    setBucket: function (bucket) {
       cacheBucket = bucket;
     },
 
     /**
      * Resets the string being appended to CACHE_PREFIX so lscache will use the default storage behavior.
      */
-    resetBucket: function() {
+    resetBucket: function () {
       cacheBucket = '';
     },
 
     /**
      * Sets whether to display warnings when an item is removed from the cache or not.
      */
-    enableWarnings: function(enabled) {
+    enableWarnings: function (enabled) {
       warnings = enabled;
     }
   };
