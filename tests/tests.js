@@ -174,17 +174,36 @@ var startTests = function (lscache) {
       equal(lscache.get(currentKey), longString, 'We expect value to be set');
     });
 
-    // We do this test last since it must wait 1 minute
+    // Do an expiration test using milllisecond resolution,
+    // but not too fast so we can actually test expiration on slow machines
+    asyncTest('Testing set() and get() with string and fractional expiration', 3, function() {
+
+      var key0 = 'thekey';
+      var key = 'expirekey';
+      var value = 'thevalue';
+      var ms = 250.0;
+      var expiry = ms / (60 * 1000);
+      lscache.set(key0, value);
+      lscache.set(key, value, expiry);
+      equal(lscache.get(key0), value, 'We expect the non-expiring value to be ' + (value));
+      equal(lscache.get(key), value, 'We expect the non-expired value to be ' + (value));
+      setTimeout(function() {
+        equal(lscache.get(key), null, 'We expect value after expiration to be null');
+        start();
+      }, ms);
+    });
+
+    // We do this test last since it must wait 1 second
     asyncTest('Testing set() and get() with string and expiration', 1, function() {
 
       var key = 'thekey';
       var value = 'thevalue';
-      var minutes = 1;
-      lscache.set(key, value, minutes);
+      var seconds = 1.0;
+      lscache.set(key, value, seconds / 60);
       setTimeout(function() {
         equal(lscache.get(key), null, 'We expect value to be null');
         start();
-      }, 1000*60*minutes);
+      }, 1000 * seconds);
     });
 
     asyncTest('Testing set() and get() with string and expiration in a different bucket', 2, function() {
@@ -192,17 +211,17 @@ var startTests = function (lscache) {
       var key = 'thekey';
       var value1 = 'thevalue1';
       var value2 = 'thevalue2';
-      var minutes = 1;
+      var seconds = 1.0;
       var bucket = 'newbucket';
-      lscache.set(key, value1, minutes * 2);
+      lscache.set(key, value1, (seconds * 2) / 60);
       lscache.setBucket(bucket);
-      lscache.set(key, value2, minutes);
+      lscache.set(key, value2, seconds / 60);
       setTimeout(function() {
         equal(lscache.get(key), null, 'We expect value to be null for the bucket: ' + bucket);
         lscache.resetBucket();
         equal(lscache.get(key), value1, 'We expect value to be ' + value1 + ' for the base bucket.');
         start();
-      }, 1000*60*minutes);
+      }, 1000 * seconds);
     });
 
     asyncTest('Testing flush(expired)', function() {

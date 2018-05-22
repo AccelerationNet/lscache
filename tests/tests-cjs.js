@@ -1,4 +1,4 @@
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 /**
  * lscache library
  * Copyright (c) 2011, Pamela Fox
@@ -92,12 +92,11 @@
 
   // Check to set if the error is us dealing with being out of space
   function isOutOfSpace(e) {
-    if (e && e.name === 'QUOTA_EXCEEDED_ERR' ||
-            e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
-            e.name === 'QuotaExceededError') {
-        return true;
-    }
-    return false;
+    return e && (
+      e.name === 'QUOTA_EXCEEDED_ERR' ||
+      e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+      e.name === 'QuotaExceededError'
+    );
   }
 
   // Determines if native JSON (de-)serialization is supported in the browser.
@@ -132,7 +131,7 @@
    * @return {number}
    */
   function currentTime() {
-    return Math.floor((new Date().getTime())/EXPIRY_UNITS);
+    return (new Date().getTime()) / EXPIRY_UNITS;
   }
 
   /**
@@ -178,7 +177,7 @@
     var expr = getItem(exprKey);
 
     if (expr) {
-      var expirationTime = parseInt(expr, EXPIRY_RADIX);
+      var expirationTime = parseFloat(expr);
 
       // Check if we should actually kick item out of storage
       if (currentTime() >= expirationTime) {
@@ -230,7 +229,7 @@
           eachKey(function(key, exprKey) {
             var expiration = getItem(exprKey);
             if (expiration) {
-              expiration = parseInt(expiration, EXPIRY_RADIX);
+              expiration = parseFloat(expiration);
             } else {
               // TODO: Store date added for non-expiring items for smarter removal
               expiration = MAX_DATE;
@@ -556,17 +555,36 @@ var startTests = function (lscache) {
       equal(lscache.get(currentKey), longString, 'We expect value to be set');
     });
 
-    // We do this test last since it must wait 1 minute
+    // Do an expiration test using milllisecond resolution,
+    // but not too fast so we can actually test expiration on slow machines
+    asyncTest('Testing set() and get() with string and fractional expiration', 3, function() {
+
+      var key0 = 'thekey';
+      var key = 'expirekey';
+      var value = 'thevalue';
+      var ms = 250.0;
+      var expiry = ms / (60 * 1000);
+      lscache.set(key0, value);
+      lscache.set(key, value, expiry);
+      equal(lscache.get(key0), value, 'We expect the non-expiring value to be ' + (value));
+      equal(lscache.get(key), value, 'We expect the non-expired value to be ' + (value));
+      setTimeout(function() {
+        equal(lscache.get(key), null, 'We expect value after expiration to be null');
+        start();
+      }, ms);
+    });
+
+    // We do this test last since it must wait 1 second
     asyncTest('Testing set() and get() with string and expiration', 1, function() {
 
       var key = 'thekey';
       var value = 'thevalue';
-      var minutes = 1;
-      lscache.set(key, value, minutes);
+      var seconds = 1.0;
+      lscache.set(key, value, seconds / 60);
       setTimeout(function() {
         equal(lscache.get(key), null, 'We expect value to be null');
         start();
-      }, 1000*60*minutes);
+      }, 1000 * seconds);
     });
 
     asyncTest('Testing set() and get() with string and expiration in a different bucket', 2, function() {
@@ -574,17 +592,17 @@ var startTests = function (lscache) {
       var key = 'thekey';
       var value1 = 'thevalue1';
       var value2 = 'thevalue2';
-      var minutes = 1;
+      var seconds = 1.0;
       var bucket = 'newbucket';
-      lscache.set(key, value1, minutes * 2);
+      lscache.set(key, value1, (seconds * 2) / 60);
       lscache.setBucket(bucket);
-      lscache.set(key, value2, minutes);
+      lscache.set(key, value2, seconds / 60);
       setTimeout(function() {
         equal(lscache.get(key), null, 'We expect value to be null for the bucket: ' + bucket);
         lscache.resetBucket();
         equal(lscache.get(key), value1, 'We expect value to be ' + value1 + ' for the base bucket.');
         start();
-      }, 1000*60*minutes);
+      }, 1000 * seconds);
     });
 
     asyncTest('Testing flush(expired)', function() {
