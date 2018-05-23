@@ -11,11 +11,13 @@ The library exposes 5 methods: `set()`, `get()`, `remove()`, `flush()`, and `set
 * * *
 
 ### lscache.set
-Stores the value in localStorage. Expires after specified number of minutes.
+Stores the value in localStorage. Expires after specified number of minutes.  Note that
+the expiration time can be set to smaller increments than one minute by specifying
+fractions of minutes.  E.G. 1/60 (0.01667) would expire after only one second.
 #### Arguments
 1. `key` (**string**)
 2. `value` (**Object|string**)
-3. `time` (**number: optional**)
+3. `time` (**number: optional - the radix is one minute, but accepts fractions down to 1ms**)
 
 * * *
 
