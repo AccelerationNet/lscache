@@ -6,7 +6,20 @@ and associate an expiration time with each piece of data. If the `localStorage` 
 Methods
 -------
 
-The library exposes 5 methods: `set()`, `get()`, `remove()`, `flush()`, and `setBucket()`.
+The library exposes 6 methods: `init()`, `set()`, `get()`, `remove()`, `flush()`, and `setBucket()`.
+
+* * *
+
+### lscache.init
+Allows alternate storage types to be specified E.G. sessionStorage instead of localStorage.  If init is not called or is called with an empty or null JSON object, then the defaults are used.
+#### Arguments
+1. `props` (**JSON**)
+    * `storageType:` One of 'local' (default) or 'session'
+
+#### Returns
+**Object** : JSON
+  * `supported:` (**bool**) if the requested storage type is supported by the runtime
+  * `usingStorageType:` (**string**) the storage type that will be used ('local' or 'session')
 
 * * *
 
@@ -89,6 +102,17 @@ You can also check if local storage is supported in the current browser with `ls
 if (!lscache.supported()) {
   alert('Local storage is unsupported in this browser');
   return;
+}
+```
+
+You can use sessionStorage instead of localStorage with `lscache.init()` before making other calls:
+
+```js
+var result = lscache.init({ storageType: 'session'});
+if (result && !result.supported) {
+  alert('Session storage is unsupported in this browser');
+} else if (result && result.usingStorageType) {
+  alert('This browser will use ' + (result.usingStorageType) + 'Storage');
 }
 ```
 
