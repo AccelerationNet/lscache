@@ -118,9 +118,19 @@
     switch (type) {
     case 'session':
       storage = getSessionStorage();
+      // fallback to local storage is session storage is not available
+      if (storage === undefined) {
+        type = 'local';
+        storage = getLocalStorage();
+      }
       break;
     case 'sync':
       storage = getSyncStorage();
+      // fallback to local storage is sync storage is not available
+      if (storage === undefined) {
+        type = 'local';
+        storage = getLocalStorage();
+      }
       break;
     default:  // 'local', invlaid, or unspecified type uses local
       type = 'local';
@@ -769,7 +779,7 @@ var startTests = function (lscache) {
       lscache.init({ storageType: 'sync' });
       lscache.set(key, value);
       lscache.init({ storageType: 'local' });
-      equal(lscache.get(key), null, 'We expect sync value on phantomjs to actually be local' + (null));
+      equal(lscache.get(key), value, 'We expect sync value on phantomjs to actually be local ' + (value));
       lscache.flush();
     });
 

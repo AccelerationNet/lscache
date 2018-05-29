@@ -14,7 +14,7 @@ The library exposes 6 methods: `init()`, `set()`, `get()`, `remove()`, `flush()`
 Allows alternate storage types to be specified E.G. sessionStorage instead of localStorage.  If init is not called or is called with an empty or null JSON object, then the defaults are used.
 #### Arguments
 1. `props` (**JSON**)
-    * `storageType:` One of 'local' (default) or 'session'
+    * `storageType:` One of 'local' (default), 'session', or 'sync' (Chrome and Firefox)
 
 #### Returns
 **Object** : JSON

@@ -302,7 +302,7 @@ var startTests = function (lscache) {
       lscache.init({ storageType: 'sync' });
       lscache.set(key, value);
       lscache.init({ storageType: 'local' });
-      equal(lscache.get(key), null, 'We expect sync value on phantomjs to actually be local' + (null));
+      equal(lscache.get(key), value, 'We expect sync value on phantomjs to actually be local ' + (value));
       lscache.flush();
     });
 
