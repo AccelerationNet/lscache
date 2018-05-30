@@ -36,9 +36,15 @@ module.exports = function(grunt) {
     },
     qunit: {
       options: {
-        timeout: 60 * 1000 * 2
+        timeout: 5 * 1000  // 5 secs
       },
-      all: ['tests/*.html']
+      all: ['tests/*.html', 'tests/phantomjs/*.html']
+    },
+    qunit_puppeteer: {
+      options: {
+        qunitPage: 'file://' + __dirname + '/tests/chrome/test.html',
+      },
+      all: ['./tests/chrome/test.html']
     }
   });
 
@@ -47,8 +53,9 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-bump');
   grunt.loadNpmTasks('grunt-browserify');
   grunt.loadNpmTasks('grunt-contrib-qunit');
+  grunt.loadNpmTasks('grunt-qunit-puppeteer');
 
   grunt.registerTask("default", ["jshint", "uglify", "browserify"]);
-  grunt.registerTask("test", ["jshint", "uglify", "browserify", "qunit"]);
+  grunt.registerTask("test", ["jshint", "uglify", "browserify", "qunit", "qunit_puppeteer"]);
 
 };
